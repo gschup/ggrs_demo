@@ -1,0 +1,10 @@
+[package]
+name = "fighting_base"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+macroquad = "0.3.13"
+gilrs = {version = "0.8.1", features = ["wasm-bindgen"]}
