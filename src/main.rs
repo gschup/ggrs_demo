@@ -10,6 +10,7 @@ use matchbox_socket::WebRtcNonBlockingSocket;
 use crate::ex_game::ConnectionStatus;
 
 const NUM_PLAYERS: usize = 2;
+const MATCHBOX_ADDR: &str = "ws://127.0.0.1:3536";
 const FPS: f64 = 60.0;
 
 #[macroquad::main("FightingBase")]
@@ -20,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create a matchbox socket
     info!("Constructing socket...");
-    let room_url = "ws://127.0.0.1:3536/next_2";
+    let room_url = format!("{MATCHBOX_ADDR}/next_{NUM_PLAYERS}");
     let (mut socket, message_loop) = WebRtcNonBlockingSocket::new(room_url);
     let local_executor = LocalExecutor::new();
     let task = local_executor.spawn(message_loop);
