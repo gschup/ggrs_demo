@@ -2,16 +2,22 @@ mod ex_game;
 
 use async_executor::LocalExecutor;
 use ex_game::{GGRSConfig, Game};
-use ggrs::{GGRSError, NetworkStats, SessionBuilder, SessionState};
+use ggrs::{GGRSError, GGRSEvent, PlayerType, SessionBuilder, SessionState};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use matchbox_socket::WebRtcNonBlockingSocket;
+
+use crate::ex_game::ConnectionStatus;
 
 const NUM_PLAYERS: usize = 2;
 const FPS: f64 = 60.0;
 
 #[macroquad::main("FightingBase")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create a new game
+    info!("Starting game...");
+    let mut game = Game::new(NUM_PLAYERS);
+
     // create a matchbox socket
     info!("Constructing socket...");
     let room_url = "ws://127.0.0.1:3536/next_2";
@@ -38,20 +44,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // add players
     for (i, player_type) in socket.players().iter().enumerate() {
         sess_build = sess_build.add_player(player_type.clone(), i)?;
+
+        if matches!(player_type, PlayerType::Local) {
+            game.set_connection_status(vec![i], ConnectionStatus::Local);
+        }
     }
 
     // start the GGRS session
     let mut sess = sess_build.start_p2p_session(socket)?;
 
-    // Create a new box game
-    info!("Starting game...");
-    let mut game = Game::new(NUM_PLAYERS);
-
     // time variables for tick rate
     let mut last_update = Instant::now();
     let mut accumulator = Duration::ZERO;
-
-    let mut network_stats: Option<NetworkStats> = None;
 
     loop {
         // communicate, receive and send packets
@@ -59,18 +63,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sess.poll_remote_clients();
         local_executor.try_tick();
 
-        // print GGRS events
-        for event in sess.events() {
+        // handle GGRS events
+        let events: Vec<GGRSEvent<GGRSConfig>> = sess.events().collect();
+        for event in events {
             info!("Event: {:?}", event);
             match event {
-                ggrs::GGRSEvent::Disconnected { addr: _ } => game.disconnected = true,
+                GGRSEvent::Synchronized { addr } => game.set_connection_status(
+                    sess.handles_by_address(addr),
+                    ConnectionStatus::Running,
+                ),
+                GGRSEvent::Disconnected { addr } => game.set_connection_status(
+                    sess.handles_by_address(addr),
+                    ConnectionStatus::Disconnected,
+                ),
+                GGRSEvent::NetworkInterrupted {
+                    addr,
+                    disconnect_timeout: _,
+                } => game.set_connection_status(
+                    sess.handles_by_address(addr),
+                    ConnectionStatus::Interrupted,
+                ),
+                GGRSEvent::NetworkResumed { addr } => game.set_connection_status(
+                    sess.handles_by_address(addr),
+                    ConnectionStatus::Running,
+                ),
                 _ => (),
-            }
+            };
         }
 
-        // get network stats - if multiple remote players, this will overwrite the stats
+        // get network stats
         for handle in sess.remote_player_handles() {
-            network_stats = sess.network_stats(handle).ok();
+            game.connection_info[handle].stats = sess.network_stats(handle).ok();
         }
 
         // frames are only happening if the sessions are synchronized
@@ -108,7 +131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        game.render(network_stats);
+        game.render();
         local_executor.try_tick();
         next_frame().await;
     }

@@ -52,13 +52,42 @@ fn fletcher16(data: &[u8]) -> u16 {
     (sum2 << 8) | sum1
 }
 
-// BoxGame will handle rendering, gamestate, inputs and GGRSRequests
+#[derive(Copy, Clone)]
+// display the connection status for each remote player
+pub enum ConnectionStatus {
+    Local,
+    Synchronizing,
+    Running,
+    Interrupted,
+    Disconnected,
+}
+
+impl Default for ConnectionStatus {
+    fn default() -> Self {
+        ConnectionStatus::Synchronizing
+    }
+}
+
+#[derive(Default, Clone, Copy)]
+pub struct ConnectionInfo {
+    pub status: ConnectionStatus,
+    pub stats: Option<NetworkStats>,
+}
+
+fn stats_to_string(stats: Option<NetworkStats>) -> String {
+    match stats {
+        Some(stat) => format!("Ping: {}, kbps: {}", stat.ping, stat.kbps_sent),
+        None => "-".to_owned(),
+    }
+}
+
+// Game will handle rendering, gamestate, inputs and GGRSRequests
 pub struct Game {
     num_players: usize,
     game_state: State,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
-    pub disconnected: bool,
+    pub connection_info: Vec<ConnectionInfo>,
 }
 
 impl Game {
@@ -69,7 +98,13 @@ impl Game {
             game_state: State::new(num_players),
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
-            disconnected: false,
+            connection_info: vec![ConnectionInfo::default(); num_players],
+        }
+    }
+
+    pub fn set_connection_status(&mut self, handles: Vec<PlayerHandle>, status: ConnectionStatus) {
+        for handle in handles {
+            self.connection_info[handle].status = status;
         }
     }
 
@@ -117,7 +152,7 @@ impl Game {
     }
 
     // renders the game to the window
-    pub fn render(&self, network_stats: Option<NetworkStats>) {
+    pub fn render(&self) {
         clear_background(BLACK);
 
         // center the game in the screen
@@ -164,21 +199,34 @@ impl Game {
         );
         draw_text(&last_checksum_str, 20.0, 20.0, 30.0, WHITE);
         draw_text(&periodic_checksum_str, 20.0, 40.0, 30.0, WHITE);
+        draw_text("---------------------------------", 20.0, 60.0, 30.0, WHITE);
 
         // render network stats
-        let mut ping_str = match network_stats {
-            Some(stats) => format!("Ping: {}", stats.ping),
-            None => "Ping: -".to_owned(),
-        };
-
-        if self.disconnected {
-            ping_str.push_str(", Remote disconnected.");
+        for (i, con_info) in self.connection_info.iter().enumerate() {
+            let mut info_str = format!("Player {i}: ");
+            match con_info.status {
+                ConnectionStatus::Local => info_str += "local player",
+                ConnectionStatus::Synchronizing => {
+                    info_str.push_str("Synchronizing, ");
+                    info_str.push_str(&stats_to_string(con_info.stats));
+                }
+                ConnectionStatus::Running => {
+                    info_str.push_str("Running, ");
+                    info_str.push_str(&stats_to_string(con_info.stats));
+                }
+                ConnectionStatus::Interrupted => {
+                    info_str.push_str("Interrupted, ");
+                    info_str.push_str(&stats_to_string(con_info.stats));
+                }
+                ConnectionStatus::Disconnected => {
+                    info_str.push_str("Disconnected, ");
+                    info_str.push_str(&stats_to_string(con_info.stats));
+                }
+            };
+            draw_text(&info_str, 20.0, 80.0 + (i as f32 * 20.0), 30.0, WHITE);
         }
-
-        draw_text(&ping_str, 20.0, 60.0, 30.0, WHITE);
     }
 
-    #[allow(dead_code)]
     // creates a compact representation of currently pressed keys and serializes it
     pub fn local_input(&self, handle: PlayerHandle) -> Input {
         let mut inp: u8 = 0;
@@ -215,11 +263,6 @@ impl Game {
         }
 
         Input { inp }
-    }
-
-    #[allow(dead_code)]
-    pub const fn current_frame(&self) -> i32 {
-        self.game_state.frame
     }
 }
 
