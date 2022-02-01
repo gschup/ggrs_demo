@@ -108,7 +108,7 @@ END
 )
 
 # Build
-cargo build --target wasm32-unknown-unknown  --release
+cargo build --target wasm32-unknown-unknown --release
 
 # Generate bindgen outputs
 mkdir -p docs

@@ -1,5 +1,8 @@
 # fighting_base
-trying out a software stack
+
+trying out macroquad + matchbox + ggrs.
+
+Currently not working with matchbox main branch.
 
 ## Licensing
 
