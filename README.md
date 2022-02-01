@@ -2,7 +2,7 @@
 
 trying out macroquad + matchbox + ggrs.
 
-Currently not working with matchbox main branch.
+Currently not working with matchbox main branch. You need to run a matchbox_server at `127:0.0.1:3536`
 
 ## Licensing
 

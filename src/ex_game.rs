@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use ggrs::{
-    Config, Frame, GGRSRequest, GameState, GameStateCell, PlayerHandle, PlayerInput, NULL_FRAME,
+    Config, Frame, GGRSRequest, GameState, GameStateCell, NetworkStats, PlayerHandle, PlayerInput,
+    NULL_FRAME,
 };
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -10,8 +11,8 @@ const CHECKSUM_PERIOD: i32 = 100;
 
 const SHIP_HEIGHT: f32 = 50.;
 const SHIP_BASE: f32 = 40.;
-const WINDOW_HEIGHT: f32 = 800.0;
-const WINDOW_WIDTH: f32 = 600.0;
+const ARENA_HEIGHT: f32 = 800.0;
+const ARENA_WIDTH: f32 = 800.0;
 
 const INPUT_UP: u8 = 1 << 0;
 const INPUT_DOWN: u8 = 1 << 1;
@@ -114,8 +115,15 @@ impl Game {
     }
 
     // renders the game to the window
-    pub fn render(&self) {
+    pub fn render(&self, network_stats: Option<NetworkStats>) {
         clear_background(BLACK);
+
+        // center the game in the screen
+        let displ_x = (screen_width() - ARENA_WIDTH) / 2.0;
+        let displ_y = (screen_height() - ARENA_HEIGHT) / 2.0;
+        let displ_vec = Vec2::new(displ_x, displ_y);
+
+        draw_rectangle_lines(displ_x, displ_y, ARENA_WIDTH, ARENA_HEIGHT, 2.0, YELLOW);
 
         // render players
         for i in 0..self.num_players {
@@ -140,7 +148,7 @@ impl Game {
                 x + rotation.cos() * SHIP_BASE / 2. - rotation.sin() * SHIP_HEIGHT / 2.,
                 y + rotation.sin() * SHIP_BASE / 2. + rotation.cos() * SHIP_HEIGHT / 2.,
             );
-            draw_triangle(v1, v2, v3, color);
+            draw_triangle(v1 + displ_vec, v2 + displ_vec, v3 + displ_vec, color);
         }
 
         // render checksums
@@ -154,6 +162,13 @@ impl Game {
         );
         draw_text(&last_checksum_str, 20.0, 20.0, 30.0, WHITE);
         draw_text(&periodic_checksum_str, 20.0, 40.0, 30.0, WHITE);
+
+        // render network stats
+        let ping_str = match network_stats {
+            Some(stats) => format!("Ping: {}", stats.ping),
+            None => "Ping: -".to_owned(),
+        };
+        draw_text(&ping_str, 20.0, 60.0, 30.0, WHITE);
     }
 
     #[allow(dead_code)]
@@ -217,12 +232,12 @@ impl State {
         let mut velocities = Vec::new();
         let mut rotations = Vec::new();
 
-        let r = WINDOW_WIDTH as f32 / 4.0;
+        let r = ARENA_WIDTH as f32 / 4.0;
 
         for i in 0..num_players as i32 {
             let rot = i as f32 / num_players as f32 * 2.0 * std::f32::consts::PI;
-            let x = WINDOW_WIDTH as f32 / 2.0 + r * rot.cos();
-            let y = WINDOW_HEIGHT as f32 / 2.0 + r * rot.sin();
+            let x = ARENA_WIDTH as f32 / 2.0 + r * rot.cos();
+            let y = ARENA_HEIGHT as f32 / 2.0 + r * rot.sin();
             positions.push((x as f32, y as f32));
             velocities.push((0.0, 0.0));
             rotations.push((rot + std::f32::consts::PI) % (2.0 * std::f32::consts::PI));
@@ -290,9 +305,9 @@ impl State {
 
             // constrain players to canvas borders
             x = x.max(0.0);
-            x = x.min(WINDOW_WIDTH);
+            x = x.min(ARENA_WIDTH);
             y = y.max(0.0);
-            y = y.min(WINDOW_HEIGHT);
+            y = y.min(ARENA_HEIGHT);
 
             // update all state
             self.positions[i] = (x, y);

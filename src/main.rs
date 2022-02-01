@@ -2,7 +2,7 @@ mod ex_game;
 
 use async_executor::LocalExecutor;
 use ex_game::{GGRSConfig, Game};
-use ggrs::{GGRSError, SessionBuilder, SessionState};
+use ggrs::{GGRSError, NetworkStats, SessionBuilder, SessionState};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use matchbox_socket::WebRtcNonBlockingSocket;
@@ -37,7 +37,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // add players
     for (i, player_type) in socket.players().iter().enumerate() {
-        info!("adding player {}, {:?}", i, player_type);
         sess_build = sess_build.add_player(player_type.clone(), i)?;
     }
 
@@ -52,6 +51,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut last_update = Instant::now();
     let mut accumulator = Duration::ZERO;
 
+    let mut network_stats: Option<NetworkStats> = None;
+
     loop {
         // communicate, receive and send packets
         local_executor.try_tick();
@@ -60,6 +61,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // print GGRS events
         for event in sess.events() {
             info!("Event: {:?}", event);
+        }
+
+        // get network stats - if multiple remote players, this will overwrite the stats
+        for handle in sess.remote_player_handles() {
+            network_stats = sess.network_stats(handle).ok();
         }
 
         // frames are only happening if the sessions are synchronized
@@ -73,13 +79,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             // get delta time from last iteration and accumulate it
-            let delta = Instant::now()
-                .duration_since(last_update)
-                .saturating_mul(1000);
+            let delta = Instant::now().duration_since(last_update);
             accumulator = accumulator.saturating_add(delta);
             last_update = Instant::now();
-
-            info!("THIS FRAME TOOK {:?} seconds", delta.as_secs_f64());
 
             // if enough time is accumulated, we run a frame
             while accumulator.as_secs_f64() > fps_delta {
@@ -96,13 +98,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Err(GGRSError::PredictionThreshold) => {
                         info!("Frame {} skipped", sess.current_frame())
                     }
-
                     Err(e) => return Err(Box::new(e)),
                 }
             }
         }
 
-        game.render();
+        game.render(network_stats);
         next_frame().await;
     }
 }
