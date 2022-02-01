@@ -57,10 +57,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // communicate, receive and send packets
         local_executor.try_tick();
         sess.poll_remote_clients();
+        local_executor.try_tick();
 
         // print GGRS events
         for event in sess.events() {
             info!("Event: {:?}", event);
+            match event {
+                ggrs::GGRSEvent::Disconnected { addr: _ } => game.disconnected = true,
+                _ => (),
+            }
         }
 
         // get network stats - if multiple remote players, this will overwrite the stats
@@ -104,6 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         game.render(network_stats);
+        local_executor.try_tick();
         next_frame().await;
     }
 }

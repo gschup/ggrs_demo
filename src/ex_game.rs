@@ -58,6 +58,7 @@ pub struct Game {
     game_state: State,
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
+    pub disconnected: bool,
 }
 
 impl Game {
@@ -68,6 +69,7 @@ impl Game {
             game_state: State::new(num_players),
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
+            disconnected: false,
         }
     }
 
@@ -164,10 +166,15 @@ impl Game {
         draw_text(&periodic_checksum_str, 20.0, 40.0, 30.0, WHITE);
 
         // render network stats
-        let ping_str = match network_stats {
+        let mut ping_str = match network_stats {
             Some(stats) => format!("Ping: {}", stats.ping),
             None => "Ping: -".to_owned(),
         };
+
+        if self.disconnected {
+            ping_str.push_str(", Remote disconnected.");
+        }
+
         draw_text(&ping_str, 20.0, 60.0, 30.0, WHITE);
     }
 
