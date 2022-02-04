@@ -1,7 +1,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>fighting_base</title>
+    <title>ggrs_demo</title>
     <style>
         html,
         body,
@@ -21,7 +21,7 @@
     <!-- Minified and statically hosted version of https://github.com/not-fl3/macroquad/blob/master/js/mq_js_bundle.js -->
     <script src="https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js"></script>
     <script type="module">
-        import init, { set_wasm } from "./fighting_base.js";
+        import init, { set_wasm } from "./ggrs_demo.js";
         async function run() {
             let wbg = await init();
             miniquad_add_plugin({
@@ -30,7 +30,7 @@
                 version: "0.0.1",
                 name: "wbg",
             });
-            load("./fighting_base_bg.wasm");
+            load("./ggrs_demo_bg.wasm");
         }
         run();
     </script>
