@@ -15,10 +15,6 @@ const FPS: f64 = 60.0;
 
 #[macroquad::main("FightingBase")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a new game
-    info!("Starting game...");
-    let mut game = Game::new(NUM_PLAYERS);
-
     // create a matchbox socket
     info!("Constructing socket...");
     let room_url = format!("{MATCHBOX_ADDR}/next_{NUM_PLAYERS}");
@@ -34,6 +30,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         socket.accept_new_connections();
         next_frame().await;
     }
+
+    // Create a new game
+    info!("Starting game...");
+    let mut game = Game::new(NUM_PLAYERS);
 
     // create a GGRS session
     info!("Building GGRS Session...");

@@ -269,11 +269,11 @@ impl Game {
 // BoxGameState holds all relevant information about the game state
 #[derive(Clone, Serialize, Deserialize)]
 pub struct State {
-    pub frame: i32,
-    pub num_players: usize,
-    pub positions: Vec<(f32, f32)>,
-    pub velocities: Vec<(f32, f32)>,
-    pub rotations: Vec<f32>,
+    frame: i32,
+    num_players: usize,
+    positions: Vec<(f32, f32)>,
+    velocities: Vec<(f32, f32)>,
+    rotations: Vec<f32>,
 }
 
 impl State {
