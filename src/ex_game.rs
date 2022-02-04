@@ -88,6 +88,7 @@ pub struct Game {
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
     pub connection_info: Vec<ConnectionInfo>,
+    pub frame_skipped: bool,
 }
 
 impl Game {
@@ -99,6 +100,7 @@ impl Game {
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
             connection_info: vec![ConnectionInfo::default(); num_players],
+            frame_skipped: false,
         }
     }
 
@@ -188,6 +190,11 @@ impl Game {
             draw_triangle(v1 + displ_vec, v2 + displ_vec, v3 + displ_vec, color);
         }
 
+        // render frame skip hint
+        if self.frame_skipped {
+            draw_text("Frame skipped!", 20.0, 20.0, 30.0, WHITE);
+        }
+
         // render checksums
         let last_checksum_str = format!(
             "Frame {}: Checksum {}",
@@ -197,9 +204,9 @@ impl Game {
             "Frame {}: Checksum {}",
             self.periodic_checksum.0, self.periodic_checksum.1
         );
-        draw_text(&last_checksum_str, 20.0, 20.0, 30.0, WHITE);
-        draw_text(&periodic_checksum_str, 20.0, 40.0, 30.0, WHITE);
-        draw_text("---------------------------------", 20.0, 60.0, 30.0, WHITE);
+        draw_text(&last_checksum_str, 20.0, 40.0, 30.0, WHITE);
+        draw_text(&periodic_checksum_str, 20.0, 60.0, 30.0, WHITE);
+        draw_text("---------------------------------", 20.0, 80.0, 30.0, WHITE);
 
         // render network stats
         for (i, con_info) in self.connection_info.iter().enumerate() {
@@ -223,8 +230,12 @@ impl Game {
                     info_str.push_str(&stats_to_string(con_info.stats));
                 }
             };
-            draw_text(&info_str, 20.0, 80.0 + (i as f32 * 20.0), 30.0, WHITE);
+            draw_text(&info_str, 20.0, 100.0 + (i as f32 * 20.0), 30.0, WHITE);
         }
+
+        let y = 100.0 + self.num_players as f32 * 20.0;
+        draw_text("---------------------------------", 20.0, y, 30.0, WHITE);
+        draw_text("Controls: W,A,S,D to move", 20.0, y + 20.0, 30.0, WHITE);
     }
 
     // creates a compact representation of currently pressed keys and serializes it
