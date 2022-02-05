@@ -1,13 +1,15 @@
 mod ex_game;
+mod lobby;
 
 use async_executor::LocalExecutor;
 use ex_game::{GGRSConfig, Game};
-use ggrs::{GGRSError, GGRSEvent, P2PSession, PlayerType, SessionBuilder, SessionState};
+use ggrs::{GGRSError, P2PSession, PlayerType, SessionBuilder, SessionState};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use matchbox_socket::WebRtcNonBlockingSocket;
 
 use crate::ex_game::ConnectionStatus;
+use crate::lobby::Lobby;
 
 const NUM_PLAYERS: usize = 2;
 const MATCHBOX_ADDR: &str = "ws://127.0.0.1:3536";
@@ -24,19 +26,21 @@ struct GGRSDemo<'a> {
     executor: LocalExecutor<'a>,
     socket: Option<WebRtcNonBlockingSocket>,
     session: Option<P2PSession<GGRSConfig>>,
+    lobby: Lobby,
     game: Game,
     last_update: Instant,
     accumulator: Duration,
 }
 
 impl<'a> GGRSDemo<'a> {
-    fn new() -> Self {
+    fn new(logo: Texture2D) -> Self {
         Self {
             state: DemoState::Lobby,
             executor: LocalExecutor::new(),
             socket: None,
             session: None,
             game: Game::new(NUM_PLAYERS),
+            lobby: Lobby::new(logo),
             last_update: Instant::now(),
             accumulator: Duration::ZERO,
         }
@@ -55,13 +59,15 @@ impl<'a> GGRSDemo<'a> {
     }
 
     fn run_lobby(&mut self) {
-        info!("Constructing socket...");
-        let room_url = format!("{MATCHBOX_ADDR}/next_{NUM_PLAYERS}");
-        let (socket, message_loop) = WebRtcNonBlockingSocket::new(room_url);
-        self.socket = Some(socket);
-        let task = self.executor.spawn(message_loop);
-        task.detach();
-        self.state = DemoState::Connecting;
+        if let Some(room_id) = self.lobby.run() {
+            info!("Constructing socket...");
+            let room_url = format!("{MATCHBOX_ADDR}/{room_id}");
+            let (socket, message_loop) = WebRtcNonBlockingSocket::new(room_url);
+            self.socket = Some(socket);
+            let task = self.executor.spawn(message_loop);
+            task.detach();
+            self.state = DemoState::Connecting;
+        }
     }
 
     fn run_connecting(&mut self) {
@@ -74,7 +80,7 @@ impl<'a> GGRSDemo<'a> {
         socket.accept_new_connections();
 
         let info_str = format!(
-            "Waiting for {} more players...",
+            "Waiting for {} more player(s)...",
             NUM_PLAYERS - 1 - socket.connected_peers().len()
         );
         draw_text(&info_str, 20.0, 20.0, 30.0, WHITE);
@@ -128,32 +134,7 @@ impl<'a> GGRSDemo<'a> {
         self.executor.try_tick();
 
         // handle GGRS events
-        let events: Vec<GGRSEvent<GGRSConfig>> = sess.events().collect();
-        for event in events {
-            info!("Event: {:?}", event);
-            match event {
-                GGRSEvent::Synchronized { addr } => self.game.set_connection_status(
-                    sess.handles_by_address(addr),
-                    ConnectionStatus::Running,
-                ),
-                GGRSEvent::Disconnected { addr } => self.game.set_connection_status(
-                    sess.handles_by_address(addr),
-                    ConnectionStatus::Disconnected,
-                ),
-                GGRSEvent::NetworkInterrupted {
-                    addr,
-                    disconnect_timeout: _,
-                } => self.game.set_connection_status(
-                    sess.handles_by_address(addr),
-                    ConnectionStatus::Interrupted,
-                ),
-                GGRSEvent::NetworkResumed { addr } => self.game.set_connection_status(
-                    sess.handles_by_address(addr),
-                    ConnectionStatus::Running,
-                ),
-                _ => (),
-            };
-        }
+        self.game.handle_events(sess);
 
         // update network stats
         for handle in sess.remote_player_handles() {
@@ -205,5 +186,6 @@ impl<'a> GGRSDemo<'a> {
 }
 #[macroquad::main("GGRS Demo")]
 async fn main() {
-    GGRSDemo::new().run().await;
+    let logo: Texture2D = load_texture("assets/ggrs_logo.png").await.unwrap();
+    GGRSDemo::new(logo).run().await;
 }

@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use ggrs::{
-    Config, Frame, GGRSRequest, GameState, GameStateCell, NetworkStats, PlayerHandle, PlayerInput,
-    NULL_FRAME,
+    Config, Frame, GGRSEvent, GGRSRequest, GameState, GameStateCell, NetworkStats, P2PSession,
+    PlayerHandle, PlayerInput, NULL_FRAME,
 };
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -118,6 +118,35 @@ impl Game {
                 GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
                 GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }
+        }
+    }
+
+    pub fn handle_events(&mut self, sess: &mut P2PSession<GGRSConfig>) {
+        let events: Vec<GGRSEvent<GGRSConfig>> = sess.events().collect();
+        for event in events {
+            info!("Event: {:?}", event);
+            match event {
+                GGRSEvent::Synchronized { addr } => self.set_connection_status(
+                    sess.handles_by_address(addr),
+                    ConnectionStatus::Running,
+                ),
+                GGRSEvent::Disconnected { addr } => self.set_connection_status(
+                    sess.handles_by_address(addr),
+                    ConnectionStatus::Disconnected,
+                ),
+                GGRSEvent::NetworkInterrupted {
+                    addr,
+                    disconnect_timeout: _,
+                } => self.set_connection_status(
+                    sess.handles_by_address(addr),
+                    ConnectionStatus::Interrupted,
+                ),
+                GGRSEvent::NetworkResumed { addr } => self.set_connection_status(
+                    sess.handles_by_address(addr),
+                    ConnectionStatus::Running,
+                ),
+                _ => (),
+            };
         }
     }
 
