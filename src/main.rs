@@ -2,7 +2,7 @@ mod ex_game;
 mod lobby;
 
 use async_executor::LocalExecutor;
-use ex_game::{GGRSConfig, Game};
+use ex_game::{FrameStatus, GGRSConfig, Game};
 use ggrs::{GGRSError, P2PSession, PlayerType, SessionBuilder, SessionState};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
@@ -12,7 +12,7 @@ use crate::ex_game::ConnectionStatus;
 use crate::lobby::Lobby;
 
 const NUM_PLAYERS: usize = 2;
-const MATCHBOX_ADDR: &str = "ws://127.0.0.1:3536";
+const MATCHBOX_ADDR: &str = "ws://139.59.136.226:3536";
 const FPS: f64 = 60.0;
 
 enum DemoState {
@@ -145,11 +145,10 @@ impl<'a> GGRSDemo<'a> {
         if sess.current_state() == SessionState::Running {
             // this is to keep ticks between clients synchronized.
             // if a client is ahead, it will run frames slightly slower to allow catching up
-            let fps_delta = if sess.frames_ahead() > 0 {
-                (1. / FPS) * 1.1
-            } else {
-                1. / FPS
-            };
+            let mut fps_delta = 1. / FPS;
+            if sess.frames_ahead() > 0 {
+                fps_delta *= 1.1;
+            }
 
             // get delta time from last iteration and accumulate it
             let delta = Instant::now().duration_since(self.last_update);
@@ -172,10 +171,16 @@ impl<'a> GGRSDemo<'a> {
                 match sess.advance_frame() {
                     Ok(requests) => {
                         self.game.handle_requests(requests);
-                        self.game.frame_skipped = false
+                        self.game.frame_info = if sess.frames_ahead() > 0 {
+                            FrameStatus::Slow
+                        } else {
+                            FrameStatus::Normal
+                        }
                     }
-                    Err(GGRSError::PredictionThreshold) => self.game.frame_skipped = true,
-                    Err(_) => panic!("Unknown error happened during session.advance_frame()"),
+                    Err(GGRSError::PredictionThreshold) => self.game.frame_info = FrameStatus::Halt,
+                    Err(e) => panic!(
+                        "Unknown error happened during P2PSession::<_>::advance_frame(): {e}"
+                    ),
                 }
             }
         }

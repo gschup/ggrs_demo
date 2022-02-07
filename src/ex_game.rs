@@ -14,10 +14,10 @@ const SHIP_BASE: f32 = 40.;
 const ARENA_HEIGHT: f32 = 800.0;
 const ARENA_WIDTH: f32 = 800.0;
 
-const INPUT_UP: u8 = 1 << 0;
-const INPUT_DOWN: u8 = 1 << 1;
-const INPUT_LEFT: u8 = 1 << 2;
-const INPUT_RIGHT: u8 = 1 << 3;
+const INPUT_UP: u8 = 0b0001;
+const INPUT_DOWN: u8 = 0b0010;
+const INPUT_LEFT: u8 = 0b0100;
+const INPUT_RIGHT: u8 = 0b1000;
 
 const MOVEMENT_SPEED: f32 = 15.0 / FPS as f32;
 const ROTATION_SPEED: f32 = 2.5 / FPS as f32;
@@ -62,6 +62,12 @@ pub enum ConnectionStatus {
     Disconnected,
 }
 
+pub enum FrameStatus {
+    Normal,
+    Slow,
+    Halt,
+}
+
 impl Default for ConnectionStatus {
     fn default() -> Self {
         ConnectionStatus::Synchronizing
@@ -88,7 +94,7 @@ pub struct Game {
     last_checksum: (Frame, u64),
     periodic_checksum: (Frame, u64),
     pub connection_info: Vec<ConnectionInfo>,
-    pub frame_skipped: bool,
+    pub frame_info: FrameStatus,
 }
 
 impl Game {
@@ -100,7 +106,7 @@ impl Game {
             last_checksum: (NULL_FRAME, 0),
             periodic_checksum: (NULL_FRAME, 0),
             connection_info: vec![ConnectionInfo::default(); num_players],
-            frame_skipped: false,
+            frame_info: FrameStatus::Normal,
         }
     }
 
@@ -219,10 +225,13 @@ impl Game {
             draw_triangle(v1 + displ_vec, v2 + displ_vec, v3 + displ_vec, color);
         }
 
-        // render frame skip hint
-        if self.frame_skipped {
-            draw_text("Frame skipped!", 20.0, 20.0, 30.0, WHITE);
-        }
+        // render frame status
+        let frame_status_str = match self.frame_info {
+            FrameStatus::Normal => "Status: Normal",
+            FrameStatus::Slow => "Status: Running Slow - Allows other players to catch up",
+            FrameStatus::Halt => "Status: Halting - Too far ahead of other players",
+        };
+        draw_text(frame_status_str, 20.0, 20.0, 30.0, WHITE);
 
         // render checksums
         let last_checksum_str = format!(
@@ -267,7 +276,7 @@ impl Game {
         draw_text("Controls: W,A,S,D to move", 20.0, y + 20.0, 30.0, WHITE);
     }
 
-    // creates a compact representation of currently pressed keys and serializes it
+    // creates a compact representation of currently pressed keys
     pub fn local_input(&self, handle: PlayerHandle) -> Input {
         let mut inp: u8 = 0;
 

@@ -2,7 +2,7 @@
 
 ## A demo of GGRS running in your browser
 
-Currently not working with matchbox main branch. Needs a matchbox_server at `127:0.0.1:3536`
+Currently not working with matchbox main branch.
 
 ## Licensing
 
