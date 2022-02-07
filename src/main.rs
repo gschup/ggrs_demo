@@ -12,7 +12,7 @@ use crate::ex_game::ConnectionStatus;
 use crate::lobby::Lobby;
 
 const NUM_PLAYERS: usize = 2;
-const MATCHBOX_ADDR: &str = "ws://139.59.136.226:3536";
+const MATCHBOX_ADDR: &str = "wss://139.59.136.226:3536";
 const FPS: f64 = 60.0;
 
 enum DemoState {
