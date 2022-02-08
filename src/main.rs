@@ -96,9 +96,10 @@ impl<'a> GGRSDemo<'a> {
             // create a new ggrs session
             let mut sess_build = SessionBuilder::<GGRSConfig>::new()
                 .with_num_players(NUM_PLAYERS)
+                .with_max_prediction_window(16)
                 .with_fps(FPS as usize)
-                .expect("Invalid FPS") // (optional) set expected update frequency
-                .with_input_delay(2); // (optional) set input delay for the local player
+                .expect("Invalid FPS")
+                .with_input_delay(2);
 
             // add players
             for (i, player_type) in socket.players().iter().enumerate() {
