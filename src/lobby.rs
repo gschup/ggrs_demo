@@ -57,9 +57,9 @@ impl Lobby {
         self.render();
 
         if is_key_pressed(KeyCode::Enter) && self.text_field.len() == 4 {
-            Some(self.text_field.clone())
+            Some(format!("macro{}", self.text_field))
         } else if is_key_pressed(KeyCode::Enter) && self.text_field.len() == 0 {
-            Some("random".to_owned())
+            Some("macro?next=2".to_owned())
         } else {
             None
         }

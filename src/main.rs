@@ -6,7 +6,7 @@ use ex_game::{FrameStatus, GGRSConfig, Game};
 use ggrs::{GGRSError, P2PSession, PlayerType, SessionBuilder, SessionState};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
-use matchbox_socket::WebRtcNonBlockingSocket;
+use matchbox_socket::WebRtcSocket;
 
 use crate::ex_game::ConnectionStatus;
 use crate::lobby::Lobby;
@@ -25,7 +25,7 @@ enum DemoState {
 struct GGRSDemo<'a> {
     state: DemoState,
     executor: LocalExecutor<'a>,
-    socket: Option<WebRtcNonBlockingSocket>,
+    socket: Option<WebRtcSocket>,
     session: Option<P2PSession<GGRSConfig>>,
     lobby: Lobby,
     game: Game,
@@ -63,7 +63,7 @@ impl<'a> GGRSDemo<'a> {
         if let Some(room_id) = self.lobby.run() {
             info!("Constructing socket...");
             let room_url = format!("{MATCHBOX_ADDR}/{room_id}");
-            let (socket, message_loop) = WebRtcNonBlockingSocket::new(room_url);
+            let (socket, message_loop) = WebRtcSocket::new(room_url);
             self.socket = Some(socket);
             let task = self.executor.spawn(message_loop);
             task.detach();
