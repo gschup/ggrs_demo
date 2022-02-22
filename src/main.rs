@@ -122,6 +122,13 @@ impl<'a> GGRSDemo<'a> {
             self.last_update = Instant::now();
             self.accumulator = Duration::ZERO;
         }
+
+        // user can abort
+        if is_key_pressed(KeyCode::Escape) {
+            self.state = DemoState::Lobby;
+            self.socket = None;
+            self.executor = LocalExecutor::new();
+        }
     }
 
     fn run_game(&mut self) {
