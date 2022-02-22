@@ -143,27 +143,27 @@ impl<'a> GGRSDemo<'a> {
             self.game.connection_info[handle].stats = sess.network_stats(handle).ok();
         }
 
-        // frames are only happening if the sessions are synchronized
-        if sess.current_state() == SessionState::Running {
-            // this is to keep ticks between clients synchronized.
-            // if a client is ahead, it will run frames slightly slower to allow catching up
-            let mut fps_delta = 1. / FPS;
-            if sess.frames_ahead() > 0 {
-                fps_delta *= 1.1;
-            }
+        // this is to keep ticks between clients synchronized.
+        // if a client is ahead, it will run frames slightly slower to allow catching up
+        let mut fps_delta = 1. / FPS;
+        if sess.frames_ahead() > 0 {
+            fps_delta *= 1.1;
+        }
 
-            // get delta time from last iteration and accumulate it
-            let delta = Instant::now().duration_since(self.last_update);
-            self.accumulator = self.accumulator.saturating_add(delta);
-            self.last_update = Instant::now();
+        // get delta time from last iteration and accumulate it
+        let delta = Instant::now().duration_since(self.last_update);
+        self.accumulator = self.accumulator.saturating_add(delta);
+        self.last_update = Instant::now();
 
-            // if enough time is accumulated, we run a frame
-            while self.accumulator.as_secs_f64() > fps_delta {
-                // decrease accumulator
-                self.accumulator = self
-                    .accumulator
-                    .saturating_sub(Duration::from_secs_f64(fps_delta));
+        // if enough time is accumulated, we run a frame
+        while self.accumulator.as_secs_f64() > fps_delta {
+            // decrease accumulator
+            self.accumulator = self
+                .accumulator
+                .saturating_sub(Duration::from_secs_f64(fps_delta));
 
+            // frames are only happening if the sessions are synchronized
+            if sess.current_state() == SessionState::Running {
                 // add input for all local players
                 for handle in sess.local_player_handles() {
                     sess.add_local_input(handle, self.game.local_input(0))
@@ -191,6 +191,7 @@ impl<'a> GGRSDemo<'a> {
         self.executor.try_tick();
     }
 }
+
 #[macroquad::main("GGRS Demo")]
 async fn main() {
     let logo: Texture2D = load_texture("assets/ggrs_logo.png").await.unwrap();
