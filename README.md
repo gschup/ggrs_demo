@@ -1,8 +1,8 @@
 # [![GGRS LOGO](./ggrs_logo.png)](https://github.com/gschup/ggrs/)
 
-## A demo of GGRS running in your browser
+## GGRS & Matchbox & Macroquad Demo
 
-Currently not working with matchbox main branch.
+Try it out yourself!
 
 ## Licensing
 
