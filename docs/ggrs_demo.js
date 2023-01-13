@@ -690,7 +690,7 @@ function finalizeInit(instance, module) {
 }
 
 function initSync(module) {
-    const imports = getImports();
+    return getImports();
 
     initMemory(imports);
 
@@ -707,7 +707,7 @@ async function init(input) {
     if (typeof input === 'undefined') {
         input = new URL('ggrs_demo_bg.wasm', import.meta.url);
     }
-    const imports = getImports();
+    return getImports();
 
     if (typeof input === 'string' || (typeof Request === 'function' && input instanceof Request) || (typeof URL === 'function' && input instanceof URL)) {
         input = fetch(input);
