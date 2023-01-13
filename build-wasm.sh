@@ -3,27 +3,19 @@
 set -e
 
 HELP_STRING=$(cat <<- END
-	usage: build_wasm.sh PROJECT_NAME
-
+	usage: build_wasm.sh
 	Build script for combining a Macroquad project with wasm-bindgen,
 	allowing integration with the greater wasm-ecosystem.
-
-	example: ./build_wasm.sh flappy-bird
-
+	example: ./build_wasm.sh
 	This'll go through the following steps:
-
 	    1. Build as target 'wasm32-unknown-unknown'.
-	    2. Create the directory 'docs' if it doesn't already exist.
-	    3. Run wasm-bindgen with output into the 'docs' directory.
+	    2. Create the directory 'dist' if it doesn't already exist.
+	    3. Run wasm-bindgen with output into the 'dist' directory.
 	    4. Apply patches to the output js file (detailed here: https://github.com/not-fl3/macroquad/issues/212#issuecomment-835276147).
         5. Generate coresponding 'index.html' file.
-
-	Required arguments:
-
-	    PROJECT_NAME            The name of the artifact/target/project
-
 	Author: Tom Solberg <me@sbg.dev>
 	Edit: Nik codes <nik.code.things@gmail.com>
+	Edit: Nobbele <realnobbele@gmail.com>
 	Version: 0.2
 END
 )
@@ -58,12 +50,10 @@ do
     esac
 done
 
-
 # Restore positionals
 set -- "${POSITIONAL[@]}"
-[ $# -ne 1 ] && die "too many arguments provided"
 
-PROJECT_NAME=$1
+PROJECT_NAME="default-project-name"
 
 HTML=$(cat <<- END
 <html lang="en">
@@ -84,13 +74,12 @@ HTML=$(cat <<- END
         }
     </style>
 </head>
-<body>
-    <canvas id="glcanvas" tabindex='1'></canvas>
-    <!-- Minified and statically hosted version of https://github.com/not-fl3/macroquad/blob/master/js/mq_js_bundle.js -->
+<body style="margin: 0; padding: 0; height: 100vh; width: 100vw;">
+    <canvas id="glcanvas" tabindex='1' hidden></canvas>
     <script src="https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js"></script>
     <script type="module">
         import init, { set_wasm } from "./${PROJECT_NAME}.js";
-        async function run() {
+        async function impl_run() {
             let wbg = await init();
             miniquad_add_plugin({
                 register_plugin: (a) => (a.wbg = wbg),
@@ -100,8 +89,17 @@ HTML=$(cat <<- END
             });
             load("./${PROJECT_NAME}_bg.wasm");
         }
-        run();
+        window.run = function() {
+            document.getElementById("run-container").remove();
+            document.getElementById("glcanvas").removeAttribute("hidden");
+            document.getElementById("glcanvas").focus();
+            impl_run();
+        }
     </script>
+    <div id="run-container" style="display: flex; justify-content: center; align-items: center; height: 100%; flex-direction: column;">
+        <p>Game can't play audio unless a button has been clicked.</p>
+        <button onclick="run()">Run Game</button>
+    </div>
 </body>
 </html>
 END
@@ -118,6 +116,7 @@ wasm-bindgen target/wasm32-unknown-unknown/release/$PROJECT_NAME.wasm --out-dir 
 sed -i "s/import \* as __wbg_star0 from 'env';//" docs/$PROJECT_NAME.js
 sed -i "s/let wasm;/let wasm; export const set_wasm = (w) => wasm = w;/" docs/$PROJECT_NAME.js
 sed -i "s/imports\['env'\] = __wbg_star0;/return imports.wbg\;/" docs/$PROJECT_NAME.js
+sed -i "s/const imports = getImports();/return getImports();/" docs/$PROJECT_NAME.js
 
 # Create index from the HTML variable
 echo "$HTML" > docs/index.html
