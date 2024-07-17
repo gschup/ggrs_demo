@@ -3,7 +3,7 @@ mod lobby;
 
 use async_executor::LocalExecutor;
 use ex_game::{FrameStatus, GGRSConfig, Game};
-use ggrs::{GGRSError, P2PSession, PlayerType, SessionBuilder, SessionState};
+use ggrs::{GgrsError, P2PSession, PlayerType, SessionBuilder, SessionState};
 use instant::{Duration, Instant};
 use macroquad::prelude::*;
 use matchbox_socket::WebRtcSocket;
@@ -12,8 +12,7 @@ use crate::ex_game::ConnectionStatus;
 use crate::lobby::Lobby;
 
 const NUM_PLAYERS: usize = 2;
-const MATCHBOX_ADDR: &str = "wss://match.gschup.dev";
-//const MATCHBOX_ADDR: &str = "ws://127.0.0.1:3536";
+const MATCHBOX_ADDR: &str = "ws://127.0.0.1:3536";
 const FPS: f64 = 60.0;
 
 enum DemoState {
@@ -63,7 +62,7 @@ impl<'a> GGRSDemo<'a> {
         if let Some(room_id) = self.lobby.run() {
             info!("Constructing socket...");
             let room_url = format!("{MATCHBOX_ADDR}/{room_id}");
-            let (socket, message_loop) = WebRtcSocket::new(room_url);
+            let (socket, message_loop) = WebRtcSocket::new_ggrs(room_url);
             self.socket = Some(socket);
             let task = self.executor.spawn(message_loop);
             task.detach();
@@ -78,16 +77,19 @@ impl<'a> GGRSDemo<'a> {
             .expect("Should only be in connecting state if there exists a socket.");
 
         self.executor.try_tick();
-        socket.accept_new_connections();
+
+        // Update peers and count connected ones
+        let _peer_updates = socket.update_peers();
+        let connected_peers_count = socket.connected_peers().count();
 
         let info_str = format!(
             "Waiting for {} more player(s)...",
-            NUM_PLAYERS - 1 - socket.connected_peers().len()
+            NUM_PLAYERS - 1 - connected_peers_count
         );
         draw_text(&info_str, 20.0, 20.0, 30.0, WHITE);
 
         // if we have enough players - we assume there to be only one local player
-        if socket.connected_peers().len() >= NUM_PLAYERS - 1 {
+        if connected_peers_count >= NUM_PLAYERS - 1 {
             // create a new game
             info!("Starting new game...");
             self.game = Game::new(NUM_PLAYERS);
@@ -97,16 +99,22 @@ impl<'a> GGRSDemo<'a> {
             let mut sess_build = SessionBuilder::<GGRSConfig>::new()
                 .with_num_players(NUM_PLAYERS)
                 .with_max_prediction_window(12)
+                .expect("Invalid prediction window")
                 .with_fps(FPS as usize)
                 .expect("Invalid FPS")
                 .with_input_delay(2);
 
             // add players
             for (i, player_type) in socket.players().iter().enumerate() {
+                let ggrs_player_type = match player_type {
+                    ggrs::PlayerType::Local => PlayerType::Local,
+                    ggrs::PlayerType::Remote(peer_id) => PlayerType::Remote(*peer_id),
+                    ggrs::PlayerType::Spectator(peer_id) => PlayerType::Spectator(*peer_id),
+                };
                 sess_build = sess_build
-                    .add_player(player_type.clone(), i)
+                    .add_player(ggrs_player_type, i)
                     .expect("Invalid player added.");
-                if matches!(player_type, PlayerType::Local) {
+                if matches!(player_type, ggrs::PlayerType::Local) {
                     self.game
                         .set_connection_status(vec![i], ConnectionStatus::Local);
                 }
@@ -186,7 +194,7 @@ impl<'a> GGRSDemo<'a> {
                             FrameStatus::Normal
                         }
                     }
-                    Err(GGRSError::PredictionThreshold) => self.game.frame_info = FrameStatus::Halt,
+                    Err(GgrsError::PredictionThreshold) => self.game.frame_info = FrameStatus::Halt,
                     Err(e) => panic!(
                         "Unknown error happened during P2PSession::<_>::advance_frame(): {e}"
                     ),
@@ -201,6 +209,6 @@ impl<'a> GGRSDemo<'a> {
 
 #[macroquad::main("GGRS Demo")]
 async fn main() {
-    let logo: Texture2D = load_texture("assets/ggrs_logo.png").await.unwrap();
+    let logo: Texture2D = load_texture("ggrs_logo.png").await.unwrap();
     GGRSDemo::new(logo).run().await;
 }
