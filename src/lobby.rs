@@ -70,7 +70,7 @@ impl Lobby {
         let dest_x = screen_width() / 2.0;
         let dest_y = self.logo.height() * (dest_x / self.logo.width());
         draw_texture_ex(
-            self.logo,
+            &self.logo,
             screen_width() / 2. - dest_x / 2.,
             20.0,
             WHITE,

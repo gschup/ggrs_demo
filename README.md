@@ -4,6 +4,25 @@
 
 Try it out yourself!
 
+### Basic Local Setup Instructions
+
+1. Install matchbox server:
+```sh
+cargo install matchbox_server
+```
+2. Launch matchbox server in a separate terminal window:
+```sh
+matchbox_server
+```
+3. Run the game in two different terminal windows:
+```sh
+cargo run
+```
+4. The game's code is configured to target default port local host matchbox_server. Thus once you type in the same lobby number (ex. 1234) in both game clients, they should connect via the matchbox server and you will have ggrs + macroquad working locally.
+
+### WASM/Web
+Follow instructions in `build-wasm.sh`.
+
 ## Licensing
 
 this project is dual-licensed under either

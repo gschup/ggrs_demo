@@ -1,9 +1,10 @@
 use bytemuck::{Pod, Zeroable};
 use ggrs::{
-    Config, Frame, GGRSEvent, GGRSRequest, GameStateCell, InputStatus, NetworkStats, P2PSession,
+    Config, Frame, GameStateCell, GgrsEvent, GgrsRequest, InputStatus, NetworkStats, P2PSession,
     PlayerHandle, NULL_FRAME,
 };
 use macroquad::prelude::*;
+use matchbox_socket::PeerId;
 use serde::{Deserialize, Serialize};
 
 const FPS: u64 = 60;
@@ -36,7 +37,7 @@ pub struct GGRSConfig;
 impl Config for GGRSConfig {
     type Input = Input;
     type State = State;
-    type Address = String;
+    type Address = PeerId;
 }
 
 /// computes the fletcher16 checksum, copied from wikipedia: <https://en.wikipedia.org/wiki/Fletcher%27s_checksum>
@@ -117,37 +118,37 @@ impl Game {
     }
 
     // for each request, call the appropriate function
-    pub fn handle_requests(&mut self, requests: Vec<GGRSRequest<GGRSConfig>>) {
+    pub fn handle_requests(&mut self, requests: Vec<GgrsRequest<GGRSConfig>>) {
         for request in requests {
             match request {
-                GGRSRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
-                GGRSRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
-                GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
+                GgrsRequest::LoadGameState { cell, .. } => self.load_game_state(cell),
+                GgrsRequest::SaveGameState { cell, frame } => self.save_game_state(cell, frame),
+                GgrsRequest::AdvanceFrame { inputs } => self.advance_frame(inputs),
             }
         }
     }
 
     pub fn handle_events(&mut self, sess: &mut P2PSession<GGRSConfig>) {
-        let events: Vec<GGRSEvent<GGRSConfig>> = sess.events().collect();
+        let events: Vec<GgrsEvent<GGRSConfig>> = sess.events().collect();
         for event in events {
             info!("Event: {:?}", event);
             match event {
-                GGRSEvent::Synchronized { addr } => self.set_connection_status(
+                GgrsEvent::Synchronized { addr } => self.set_connection_status(
                     sess.handles_by_address(addr),
                     ConnectionStatus::Running,
                 ),
-                GGRSEvent::Disconnected { addr } => self.set_connection_status(
+                GgrsEvent::Disconnected { addr } => self.set_connection_status(
                     sess.handles_by_address(addr),
                     ConnectionStatus::Disconnected,
                 ),
-                GGRSEvent::NetworkInterrupted {
+                GgrsEvent::NetworkInterrupted {
                     addr,
                     disconnect_timeout: _,
                 } => self.set_connection_status(
                     sess.handles_by_address(addr),
                     ConnectionStatus::Interrupted,
                 ),
-                GGRSEvent::NetworkResumed { addr } => self.set_connection_status(
+                GgrsEvent::NetworkResumed { addr } => self.set_connection_status(
                     sess.handles_by_address(addr),
                     ConnectionStatus::Running,
                 ),
